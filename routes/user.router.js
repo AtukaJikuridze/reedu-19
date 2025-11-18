@@ -1,46 +1,90 @@
 const { Router } = require("express");
-const usersModel = require("../models/users.model");
+const UserModel = require("../models/users.model");
 const { isValidObjectId } = require("mongoose");
 
+const userRouter = Router();
 
-const userRouter = Router()
+userRouter.get("/", async (req, res) => {
+  const allUsers = await UserModel.find().select("-password").lean();
+  res.status(200).json({ status: "success", users: allUsers });
+});
 
+userRouter.get("/:userId", async (req, res) => {
+  const { userId } = req.params;
 
-userRouter.get("/",async(req,res) => {
-    const findAllUser = await usersModel.find().select("-password")
-    res.json({message:"user finded successfully", data:findAllUser})
-})
+  if (!isValidObjectId(userId)) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Invalid user ID format" });
+  }
 
+  const foundUser = await UserModel.findById(userId).select("-password");
 
-userRouter.get("/:id",async (req,res) => {
-    const {id} = req.params
-    if(!isValidObjectId(id)){
-        return res.status(400).json({message:"invalid id",data:null})
-    }
+  if (!foundUser) {
+    return res.status(404).json({ status: "error", message: "User not found" });
+  }
 
-    const findById = await usersModel.findById(id).select("-password")
-    res.json({message:"user finded by id  successfully", data:findById})
-})
+  res.status(200).json({
+    status: "success",
+    message: "User retrieved",
+    user: foundUser,
+  });
+});
 
-userRouter.delete("/:id",async (req,res) => {
-      const {id} = req.params
-    if(!isValidObjectId(id)){
-        return res.status(400).json({message:"invalid id",data:null})
-    }
-    const deleteUser = await usersModel.findByIdAndDelete(id)
-    res.json({message:"user deleted successfully", data:deleteUser})
-})
+userRouter.delete("/:userId", async (req, res) => {
+  const { userId } = req.params;
 
+  if (!isValidObjectId(userId)) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Invalid user ID format" });
+  }
 
+  const deletedUser = await UserModel.findByIdAndDelete(userId);
 
-userRouter.put("/:id",async(req,res) => {
-      const {id} = req.params
-      const {fullName,email} = req.body
-    if(!isValidObjectId(id)){
-        return res.status(400).json({message:"invalid id",data:null})
-    }
-    const updateUser =await usersModel.findByIdAndUpdate(id,{fullName,email},{new:true})
-     res.json({message:"user updated successfully", data:updateUser})
-})
+  if (!deletedUser) {
+    return res
+      .status(404)
+      .json({ status: "error", message: "User not found for deletion" });
+  }
 
-module.exports = userRouter
+  res.status(200).json({
+    status: "success",
+    message: "User deleted successfully",
+    deletedUser: deletedUser,
+  });
+});
+
+userRouter.put("/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { name, userEmail } = req.body;
+
+  if (!isValidObjectId(userId)) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Invalid user ID format" });
+  }
+
+  const updatedUser = await UserModel.findByIdAndUpdate(
+    userId,
+    {
+      fullName: name,
+      email: userEmail,
+    },
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedUser) {
+    return res
+      .status(404)
+      .json({ status: "error", message: "User not found for update" });
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "User updated",
+    user: updatedUser,
+  });
+});
+
+module.exports = userRouter;
